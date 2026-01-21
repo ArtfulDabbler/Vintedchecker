@@ -1,0 +1,9 @@
+{
+  "name": "vinted-value-checker",
+  "version": "1.0.0",
+  "description": "AI-powered Vinted listing value checker",
+  "type": "module",
+  "scripts": {
+    "start": "vercel dev"
+  }
+}

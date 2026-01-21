@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinted Value Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Input Section -->
+        <div class="input-section" id="inputSection">
+            <h1 class="title">Vinted Value Checker</h1>
+            <p class="subtitle">Paste a listing URL to check if it's a good deal</p>
+
+            <input
+                type="url"
+                id="urlInput"
+                placeholder="https://www.vinted.de/items/..."
+                autocomplete="off"
+            >
+            <button id="analyzeBtn">Analyze</button>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading hidden" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing listing...</p>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section hidden" id="resultsSection">
+            <div class="rating-container">
+                <div class="rating" id="rating">4</div>
+                <div class="rating-label" id="ratingLabel">Great Deal</div>
+            </div>
+
+            <div class="item-summary" id="itemSummary">
+                <img class="item-image" id="itemImage" src="" alt="Item">
+                <div class="item-details">
+                    <h2 id="itemTitle">Loading...</h2>
+                    <p class="item-brand" id="itemBrand"></p>
+                    <p class="item-price" id="itemPrice"></p>
+                </div>
+            </div>
+
+            <div class="assessment" id="assessment">
+                <h3>Assessment</h3>
+                <p id="assessmentText"></p>
+            </div>
+
+            <button class="check-another" id="resetBtn">Check Another</button>
+        </div>
+
+        <!-- Error State -->
+        <div class="error hidden" id="error">
+            <p id="errorMessage">Something went wrong</p>
+            <button id="retryBtn">Try Again</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
