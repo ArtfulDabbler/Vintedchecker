@@ -140,6 +140,10 @@ function extractImages(html) {
 // GROQ ANALYSIS
 // ============================================
 async function analyzeWithGroq(listingData) {
+    if (!GROQ_API_KEY) {
+        throw new Error('GROQ_API_KEY environment variable not set');
+    }
+
     const prompt = buildPrompt(listingData);
 
     const response = await fetch(GROQ_API_URL, {
@@ -168,7 +172,7 @@ async function analyzeWithGroq(listingData) {
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Groq API error:', errorText);
-        throw new Error('AI analysis failed');
+        throw new Error(`AI analysis failed: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const result = await response.json();
