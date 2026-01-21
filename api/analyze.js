@@ -1,7 +1,7 @@
-// Vercel Serverless Function for Vinted Analysis
+// Vercel Serverless Function for Vinted Analysis (using Groq)
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export default async function handler(req, res) {
     // Only allow POST
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
         // Step 1: Fetch and parse Vinted listing
         const listingData = await fetchVintedListing(url);
 
-        // Step 2: Analyze with Gemini
-        const analysis = await analyzeWithGemini(listingData);
+        // Step 2: Analyze with Groq
+        const analysis = await analyzeWithGroq(listingData);
 
         // Step 3: Return results
         return res.status(200).json({
@@ -137,95 +137,78 @@ function extractImages(html) {
 }
 
 // ============================================
-// GEMINI ANALYSIS
+// GROQ ANALYSIS
 // ============================================
-async function analyzeWithGemini(listingData) {
+async function analyzeWithGroq(listingData) {
     const prompt = buildPrompt(listingData);
 
-    const requestBody = {
-        contents: [{
-            parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024
-        }
-    };
-
-    // If we have images, add the first one for vision analysis
-    if (listingData.images.length > 0) {
-        try {
-            const imageResponse = await fetch(listingData.images[0]);
-            const imageBuffer = await imageResponse.arrayBuffer();
-            const base64Image = Buffer.from(imageBuffer).toString('base64');
-            const mimeType = 'image/webp';
-
-            requestBody.contents[0].parts.unshift({
-                inlineData: {
-                    mimeType: mimeType,
-                    data: base64Image
-                }
-            });
-        } catch (e) {
-            console.error('Failed to fetch image for analysis:', e);
-        }
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are an expert at evaluating secondhand clothing deals. Be concise and helpful.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 500
+        })
     });
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error('Gemini API error:', errorText);
+        console.error('Groq API error:', errorText);
         throw new Error('AI analysis failed');
     }
 
     const result = await response.json();
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = result.choices?.[0]?.message?.content;
 
     if (!text) {
         throw new Error('No analysis generated');
     }
 
-    return parseGeminiResponse(text);
+    return parseAIResponse(text);
 }
 
 function buildPrompt(listing) {
-    return `You are an expert at evaluating secondhand clothing deals, particularly on platforms like Vinted.
+    return `Analyze this Vinted listing and provide a deal rating.
 
-Analyze this listing and provide:
-1. A RATING from 1-5:
-   - 5 = Absolute steal (way below market value)
-   - 4 = Great deal (notably below market value)
-   - 3 = Fair price (normal market value)
-   - 2 = Slightly overpriced
-   - 1 = Overpriced/poor value
-
-2. A brief ASSESSMENT (2-4 sentences) covering:
-   - How the price compares to typical market value for this type of item
-   - Authenticity confidence (especially note if this might be a budget/diffusion line being priced as mainline luxury, e.g., Armani Exchange vs Giorgio Armani)
-   - Quality indicators based on the brand and description
-
-LISTING DATA:
+LISTING:
 - Title: ${listing.title || 'Unknown'}
 - Brand: ${listing.brand || 'Unknown'}
 - Price: ${listing.price || 'Unknown'}
 - Description: ${listing.description || 'No description'}
 - Condition: ${listing.condition || 'Unknown'}
 
-${listing.images.length > 0 ? 'An image of the item is attached for visual analysis.' : ''}
+Provide:
+1. RATING (1-5):
+   5 = Absolute steal
+   4 = Great deal
+   3 = Fair price
+   2 = Slightly overpriced
+   1 = Overpriced
 
-RESPOND IN THIS EXACT FORMAT:
-RATING: [number 1-5]
-ASSESSMENT: [your assessment text]`;
+2. ASSESSMENT (2-3 sentences): Compare to market value. Note if it's a budget/diffusion line (e.g., Armani Exchange vs Giorgio Armani). Mention quality indicators.
+
+IMPORTANT: Watch for budget lines being priced as luxury (Armani Exchange, DKNY, Marc by Marc Jacobs, etc.)
+
+Format your response EXACTLY like this:
+RATING: [number]
+ASSESSMENT: [your text]`;
 }
 
-function parseGeminiResponse(text) {
+function parseAIResponse(text) {
     // Extract rating
     const ratingMatch = text.match(/RATING:\s*(\d)/i);
     const rating = ratingMatch ? parseInt(ratingMatch[1]) : 3;
